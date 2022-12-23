@@ -48,3 +48,29 @@ func (r MatchPokemonRepository) GetPokemonByMatchId(matchId int) (ListMatchPokem
 
 	return listTokensResponse, results.Error
 }
+
+func (r MatchPokemonRepository) GetPokemonsByDate(startDate time.Time, endDate time.Time) (ListMatchPokemonResponse, error) {
+
+	matches := []MatchPokemon{}
+
+	results := r.Database.Where("created_at >= ? and created_at <= ?", startDate, endDate).Order("score desc").Find(&matches)
+
+	listTokensResponse := ListMatchPokemonResponse{
+		MatchPokemons: matches,
+	}
+
+	return listTokensResponse, results.Error
+}
+
+func (r MatchPokemonRepository) GetAllPokemons() (ListMatchPokemonResponse, error) {
+
+	matches := []MatchPokemon{}
+
+	results := r.Database.Order("score desc").Find(&matches)
+
+	listTokensResponse := ListMatchPokemonResponse{
+		MatchPokemons: matches,
+	}
+
+	return listTokensResponse, results.Error
+}

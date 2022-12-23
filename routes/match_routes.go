@@ -14,5 +14,5 @@ func MatchRoute(router *gin.Engine) {
 		})
 	})
 	router.POST("/match", controllers.Create())
-	router.GET("/match", controllers.GetMatchPokemon())
+	router.GET("/matches", controllers.GetMatchPokemon())
 }

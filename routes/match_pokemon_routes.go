@@ -8,6 +8,10 @@ import (
 
 func MatchPokemonRoute(router *gin.Engine) {
 
-	router.POST("/pokemon", controllers.CreateMatchPokemon())
-	router.PUT("/pokemon", controllers.StartMatchPokemon())
+	router.GET("/pokemon/count", controllers.GetAllPokemonsFromApi())
+	router.POST("/pokemon/match/create", controllers.CreateMatchPokemon())
+	router.PUT("/pokemon/match/start", controllers.StartMatchPokemon())
+	router.GET("/pokemon/match", controllers.GetMatchPokemons())
+	router.GET("/pokemon/matches", controllers.GetAllPokemons())
+	router.PUT("/pokemon/discualification", controllers.MatchDiscualification())
 }

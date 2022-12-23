@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +27,11 @@ type NewMatchPokemon struct {
 type UpdateMatchPokemon struct {
 	MatchId  uint64 `json:"matchId"`
 	Position uint64 `json:"position"`
+}
+
+type PokemonDiscualification struct {
+	MatchId   uint64 `json:"matchId"`
+	PokemonId uint64 `json:"pokemonId"`
 }
 
 type species struct {
@@ -62,10 +68,6 @@ type ResponsePokeApiDetail struct {
 	Stats                  []stats       `json:"stats"`
 	Types                  []interface{} `json:"types"`
 	Weight                 uint64        `json:"weight"`
-}
-
-type GroceryUpdate struct {
-	Position uint64 `json:"position"`
 }
 
 func CreateMatchPokemon() gin.HandlerFunc {
@@ -138,6 +140,121 @@ func StartMatchPokemon() gin.HandlerFunc {
 		updatedMatchPokemon := models.MatchPokemon{}
 
 		for i, element := range results.MatchPokemons {
+			position = uint64(i + 1)
+			updatedMatchPokemon = models.MatchPokemon{
+				Position: uint64(position),
+			}
+
+			if err := database.Model(&matchPokemon).Where("id = ?", element.ID).Updates(updatedMatchPokemon).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+		}
+
+		c.JSON(http.StatusOK, matchPokemon)
+
+	}
+}
+
+func GetMatchPokemons() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		database := configs.Connect()
+		matchPokemonRepository := models.NewMatchPokemon(database)
+		startDate := c.Query("startDate")
+		endDate := c.Query("endDate")
+
+		startDateConverted, error := time.Parse("20060102", startDate)
+		endDateConverted, error := time.Parse("20060102", endDate)
+
+		if error != nil {
+			fmt.Println(error)
+			return
+		}
+
+		results, err := matchPokemonRepository.GetPokemonsByDate(startDateConverted, endDateConverted)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error(), "Data": err})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "success", "Data": results})
+	}
+}
+
+func GetAllPokemons() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		database := configs.Connect()
+		matchPokemonRepository := models.NewMatchPokemon(database)
+
+		results, err := matchPokemonRepository.GetAllPokemons()
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error(), "Data": err})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "success", "Data": results})
+	}
+}
+
+func GetAllPokemonsFromApi() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		pokemonsCount := getTotalPokemon()
+
+		result := ResponsePokeApi{
+			Count: uint64(pokemonsCount),
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "success", "Data": result})
+	}
+}
+
+func MatchDiscualification() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		var updateMatch PokemonDiscualification
+		var matchPokemon models.MatchPokemon
+
+		if err := c.ShouldBindJSON(&updateMatch); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error(), "Data": err})
+			return
+		}
+
+		database := configs.Connect()
+		matchPokemonRepository := models.NewMatchPokemon(database)
+
+		results, err := matchPokemonRepository.GetPokemonByMatchId(int(updateMatch.MatchId))
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error(), "Data": err})
+			return
+		}
+
+		//find current position of discualified pokemon
+
+		getIndex := indexOf(updateMatch.PokemonId, results.MatchPokemons)
+
+		removedDiscualification := removeIndex(results.MatchPokemons, getIndex)
+
+		var position uint64 = 0
+
+		updatedMatchPokemon := models.MatchPokemon{}
+
+		discualifiedPokemon := models.MatchPokemon{
+			IsFraud:  true,
+			Position: 5,
+		}
+
+		if err := database.Model(&matchPokemon).Where("pokemon_id = ?", updateMatch.PokemonId).Updates(discualifiedPokemon).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		for i, element := range removedDiscualification {
+
 			position = uint64(i + 1)
 			updatedMatchPokemon = models.MatchPokemon{
 				Position: uint64(position),
@@ -250,4 +367,17 @@ func getStatsPokemonId(id uint64) uint64 {
 		score += stat.BaseStat
 	}
 	return score
+}
+
+func indexOf(element uint64, data []models.MatchPokemon) int {
+	for k, v := range data {
+		if element == v.PokemonId {
+			return k
+		}
+	}
+	return -1 //not found.
+}
+
+func removeIndex(s []models.MatchPokemon, index int) []models.MatchPokemon {
+	return append(s[:index], s[index+1:]...)
 }
