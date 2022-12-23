@@ -1,4 +1,4 @@
-# 10xers
+# Pokemon Battle
 > **The backend API for recording pokemon battle data.**
 
 
